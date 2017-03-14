@@ -1,0 +1,135 @@
+<script
+  src="https://code.jquery.com/jquery-3.1.1.slim.min.js"
+  integrity="sha256-/SIrNqv8h6QGKDuNoLGA4iret+kyesCkHGzVUUV0shc="
+  crossorigin="anonymous"></script>
+
+<script type="text/javascript">
+  function _defineProperty(obj, key, value) {
+    if (key in obj) {
+      Object.defineProperty(obj, key, {
+        value: value,
+        enumerable: true,
+        configurable: true,
+        writable: true
+      });
+    } else {
+      obj[key] = value;
+    }
+    return obj;
+  }
+
+  var compose = function(f, g) {
+    return function(x) {
+      return f(g(x));
+    }
+  };
+
+  var mount = function({ model, update, view }, $root) {
+    var state = model;
+
+    var signal = function(action) {
+      return function() {
+        state = update(state, action);
+        var $dom = view(signal, state);
+        $root.empty().append($dom);
+      }
+    };
+
+    // Initial render
+    var $dom = view(signal, model);
+    $root.empty().append($dom);
+  }
+
+  var Counter = {
+    Inc: 'inc',
+    Dec: 'dec',
+
+    update: function(model, action) {
+      switch(action) {
+        case Counter.Inc: return model + 1
+        case Counter.Dec: return model - 1
+        default: return model
+      }
+    },
+
+    view: function(signal, model) {
+      return $('<span />').append(
+            $('<button>+</button>').on('click', signal(Counter.Inc))
+          , $('<span>'+model+'</span>')
+          , $('<button>-</button>').on('click', signal(Counter.Dec))
+          );
+    }
+  };
+
+  var Table = {
+    AddCounter: { type: 'addCounter' },
+
+    Reset: { type: 'reset' },
+
+    Delete: function(key) {
+      return {
+            type: 'delete'
+          , prop: key
+      }
+    },
+
+    buildKey: function() {
+      return Math.random().toString(36);
+    },
+
+    buildAction: function(key) {
+      return function(action) {
+        return {
+              type: 'forward'
+            , prop: key
+            , forward: action
+        }
+      }
+    },
+
+    init: function() {
+      return {
+            row0: 0
+          , row1: 1
+      }
+    },
+
+    update: function(model, action) {
+      switch(action.type) {
+        case 'reset':
+          return {};
+        case 'delete':
+          delete model[action.prop];
+          return model;
+        case 'forward':
+          return Object.assign({}, model, _defineProperty({}, action.prop, Counter.update(model[action.prop], action.forward)));
+        case 'addCounter':
+          return Object.assign({}, model, _defineProperty({}, Table.buildKey(), 0));
+        default:
+          return model;
+      }
+    },
+
+    view: function(signal, model) {
+      var controls = $('<div />').append(
+          $('<button>Add counter<Reset>').on('click', signal(Table.AddCounter))
+          , $('<button>Reset<Reset>').on('click', signal(Table.Reset)));
+
+      var views = Object.keys(model).map(function(key){
+        var deleteButton = $('<button>x</button>').on('click', signal(Table.Delete(key)));
+        return $('<div />').append(deleteButton, Counter.view(compose(signal, Table.buildAction(key)), model[key]));
+      });
+
+      return $('<div />').append(controls, views);
+    }
+  };
+
+  $(function(){
+    mount({
+      model: Table.init(),
+      update: Table.update,
+      view: Table.view
+    }, $('#helloworld')); });
+</script>
+
+<div id="helloworld" />
